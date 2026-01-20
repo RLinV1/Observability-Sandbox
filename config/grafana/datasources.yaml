@@ -25,4 +25,10 @@ datasources:
           matcherRegex: "trace_id\":\"(\\w+)"
           name: TraceID
           url: "$${__value.raw}"
-        
+
+  - name: Alertmanager
+    type: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    jsonData:
+      implementation: prometheus
