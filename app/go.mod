@@ -5,6 +5,8 @@ go 1.24.0
 toolchain go1.24.6
 
 require (
+	github.com/prometheus/client_golang v1.20.5
+    github.com/prometheus/client_model v0.6.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.64.0
 	go.opentelemetry.io/otel v1.39.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.39.0

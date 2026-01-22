@@ -7,7 +7,11 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+    "github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
@@ -18,10 +22,19 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.opentelemetry.io/otel/trace"
-
 )
 
 var logger *slog.Logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+// Prometheus histogram to carry exemplars
+var reqDuration = prometheus.NewHistogramVec(
+    prometheus.HistogramOpts{
+        Name:    "http_request_duration_seconds",
+        Help:    "HTTP request duration seconds",
+        Buckets: prometheus.DefBuckets,
+    },
+    []string{"method", "status"},
+)
 
 func main() {
 	// Initialize OpenTelemetry
@@ -33,6 +46,14 @@ func main() {
 	http.Handle("/healthz", otelhttp.NewHandler(http.HandlerFunc(healthzHandler), "healthz"))
 	http.Handle("/work", otelhttp.NewHandler(http.HandlerFunc(workHandler), "work"))
 
+	// Register Prometheus metrics
+	prometheus.MustRegister(reqDuration)
+	http.Handle("/metrics", promhttp.HandlerFor(
+		prometheus.DefaultGatherer,
+		promhttp.HandlerOpts{
+			EnableOpenMetrics: true,
+		},
+	))
 	log.Println("Starting server on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
@@ -100,6 +121,9 @@ func healthzHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func workHandler(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	status := http.StatusOK
+
 	ctx := r.Context()
 	span := trace.SpanFromContext(ctx)
 
@@ -121,19 +145,32 @@ func workHandler(w http.ResponseWriter, r *http.Request) {
 
 	// the code fails 20% of the time
 	if rand.Float32() < 0.2 {
+		status = http.StatusInternalServerError
 		log.Error("request failed",
 			"latency_ms", latency.Milliseconds(),
-			"status", 500,
+			"status", status,
 		)
 
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	log.Info("request succeeded",
+	} else {
+		log.Info("request succeeded",
 		"latency_ms", latency.Milliseconds(),
-		"status", 200,
-	)
+		"status", status,
+		)
 
-	w.Write([]byte("Work completed\n"))
+		w.Write([]byte("Work completed\n"))
+	}	
+
+	// Record request duration with exemplar
+	duration := time.Since(start).Seconds()
+    obs := reqDuration.WithLabelValues(r.Method, strconv.Itoa(status))
+    
+    // If exemplar observer is supported, attach trace ID
+    if exemplarObs, ok := obs.(prometheus.ExemplarObserver); ok && traceID != "" {
+		log.Info("Attaching exemplar", "traceID", traceID, "duration", duration) 
+        exemplarObs.ObserveWithExemplar(duration, prometheus.Labels{"traceID": traceID})
+    } else {
+		log.Warn("Exemplar not supported or traceID empty", "traceID", traceID, "ok", ok)
+        obs.Observe(duration)
+    }
 }
