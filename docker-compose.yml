@@ -40,7 +40,7 @@ services:
       - observability
 
   prometheus:
-    image: prom/prometheus:v2.54.1
+    image: prom/prometheus:latest
     ports:
       - "9090:9090" # Prometheus UI
     volumes:

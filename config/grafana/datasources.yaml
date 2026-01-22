@@ -27,7 +27,7 @@ datasources:
     url: http://loki:3100
     jsonData:
       derivedFields:
-        - datasourceUid: Jaeger
+        - datasourceUid: jaeger
           matcherRegex: "trace_id\":\"(\\w+)"
           name: TraceID
           url: "$${__value.raw}"
