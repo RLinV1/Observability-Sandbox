@@ -39,7 +39,9 @@ Once the load test is running:
 
 1. **View the Dashboard**: Go to **Dashboards** → **Observability Demo**
 2. **Click from Metric → Trace → Log**:
-3. **See Alerts Fire**: Watch for alerts when error rates exceed 5% or P95 latency exceeds 200ms
+   - Click an exemplar dot on the RPS graph to navigate directly to its trace and examine the request latency.
+   - Search logs using the trace ID to correlate metrics, traces, and logs.
+4. **See Alerts Fire**: Watch for alerts when error rates exceed 5% or P95 latency exceeds 200ms
 
 ## 📊 What's Included
 
